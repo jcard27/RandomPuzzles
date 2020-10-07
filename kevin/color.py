@@ -3,12 +3,14 @@ import time, shutil, glob, os, random, math, imageio
 
 # GENERAL SETTINGS
 OVERWRITE = False
+OFF_WHITE = True
+WHITE_ACCEPTANCE = 200
 
 # GIF SETTINGS
 GIF = True
-GIF_DURATION = 15
+GIF_DURATION = 8
 GIF_TAIL = 1
-GIF_FPS = 24
+GIF_FPS = 10
 gif_image_index = 0
 
 # COLOR SETTINGS
@@ -17,6 +19,7 @@ COLOR_VARIANCE_G = 100
 COLOR_VARIANCE_B = 100
 BASE_COLOR = (100, 100, 100)
 
+colored = {}
 whitespaces = []
 
 def get_pixel_value(image, coords):
@@ -24,6 +27,19 @@ def get_pixel_value(image, coords):
   if (coords[0] >= 0 and coords[0] < w and coords[1] >= 0 and coords[1] < h):
     return coords
   return None
+
+def should_be_colored(coord, color):
+  if colored.get(coord):
+    return False
+  result = True
+  if OFF_WHITE:
+    result = result and color[0] >= WHITE_ACCEPTANCE 
+    result = result and color[1] >= WHITE_ACCEPTANCE 
+    result = result and color[2] >= WHITE_ACCEPTANCE
+  else:
+    result = color == (255, 255, 255)
+  colored[coord] = True
+  return result
       
 def get_uncolored_around_cursor(image, x, y):
   uncolored = [0,0,0,0]
@@ -44,13 +60,13 @@ def color_region(image, x, y, color):
   uncolored = get_uncolored_around_cursor(image, x, y)
   for pixel in uncolored:
     if pixel != None:
-      if image.getpixel(pixel) == (255, 255, 255):
+      if should_be_colored(pixel, image.getpixel(pixel)):
         whitespaces.append(pixel)
 
 def color_image(image):
   for x in range(image.size[0]):
     for y in range(image.size[1]):
-      if image.getpixel((x, y)) == (255, 255, 255):
+      if should_be_colored((x,y), image.getpixel((x, y))):
         r = random.randint(0, COLOR_VARIANCE_R) + BASE_COLOR[0]
         g = random.randint(0, COLOR_VARIANCE_G) + BASE_COLOR[1]
         b = random.randint(0, COLOR_VARIANCE_B) + BASE_COLOR[2]
@@ -61,7 +77,7 @@ def color_image(image):
           color_region(image, current_pixel[0], current_pixel[1], color)
 
 def color_images():
-  for filename in glob.glob('uncolored/*.bmp'):
+  for filename in glob.glob('uncolored/*'):
     start_time = time.time()
     image = Image.open(filename).convert('RGB')
     name = filename.split('/')[1].split('.')[-2]
